@@ -5,7 +5,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import Navbar from "@/components/layout/Navbar"; // Import the Navbar component
 import Footer from "@/components/layout/Footer"; // Import the Footer component
-
+import AuthProvider from "@/components/providers/AuthProvider";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
@@ -32,16 +32,14 @@ export default function RootLayout({
         )}
       >
         {/* Render the Navbar at the top */}
-        <Navbar />
+       <AuthProvider>
+          <Navbar />
+          <main className="flex-grow container px-4 sm:px-6 lg:px-8 py-6">
+            {children}
+          </main>
+          <Footer />
+        </AuthProvider>
 
-        {/* Use the <main> semantic tag for the primary content */}
-        {/* flex-grow allows this element to take up available space, pushing the footer down */}
-        <main className="flex-grow container px-4 sm:px-6 lg:px-8 py-6">
-          {children} {/* Render the actual page or nested layout content here */}
-        </main>
-
-        {/* Render the Footer at the bottom */}
-        <Footer />
 
         {/*
           Reminder: ThemeProvider for dark/light mode would typically wrap everything
