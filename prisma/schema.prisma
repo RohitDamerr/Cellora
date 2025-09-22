@@ -61,14 +61,15 @@ model VerificationToken {
 }
 
 model Dashboard {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  userId    String   @map("user_id")
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  userId       String   @map("user_id")
+  widgets      Widget[] 
+  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-widgets Widget[] 
  @@map("dashboards")
 }
 
