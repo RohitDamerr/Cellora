@@ -13,6 +13,8 @@ export interface KpiWidgetConfig extends BaseWidgetConfig {
   metricLabel?: string;
   prefix?: string;
   suffix?: string;
+    value: number | null;  
+
   dataUrl?: string;
 }
 

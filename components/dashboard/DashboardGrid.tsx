@@ -17,6 +17,8 @@ import {
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import {arrayMove} from '@dnd-kit/sortable';
+import { v4 as uuidv4 } from 'uuid';
+
 // Import types (assuming you have centralized types)
 import type { AppWidget, WidgetConfig } from '@/lib/types/widget';
 
@@ -26,8 +28,11 @@ import { KpiCardWidget } from '../widgets/KpiCardWidget';
 import { NotesWidget } from '../widgets/NotesWidget';
 import { ChartPlaceholderWidget } from '../widgets/ChartPlaceHolderWidget';
 import { DataTablePlaceholderWidget } from '../widgets/DataTablePlaceHolderWidget';
-
 import { TestDraggable } from './TestDraggable';
+
+import { Button } from '@/components/ui/button';
+import { WidgetPalette, WidgetTypeId } from '@/components/dashboard/WidgetPallete'; 
+import { PlusCircle } from 'lucide-react';
 
 interface DashboardGridProps {
   initialWidgets: AppWidget[]; // The list of widgets fetched by the Server Component
@@ -47,10 +52,32 @@ function getWidgetComponent(widgetType: string) {
 const handleNotesConfigChange = (widgetId: string, newConfig: any) => { // Use specific type later
     console.log("Notes config changed (placeholder):", widgetId, newConfig);
 };
+
+function getDefaultWidgetConfig(type: WidgetTypeId): WidgetConfig {
+    switch (type) {
+        case 'KPI':
+            return { type: 'KPI', title: 'New KPI', value: null, dataUrl: '' };
+        case 'Notes':
+            // Ensure this matches your NotesWidgetConfig type definition
+            return { type: 'Notes', title: 'New Note', content: '' };
+        case 'Chart':
+            return { type: 'Chart', title: 'New Chart', dataUrl: '', chartType: 'bar' };
+        case 'DataTable':
+            return { type: 'DataTable', title: 'New Table', dataUrl: '' };
+        default:
+            // Fallback for unknown types, though TypeScript should help prevent this
+            console.warn(`Unknown widget type provided for default config: ${type}`);
+            // Return a minimal config, ensuring the 'type' field matches the requested type
+            // You might need a more specific base type or throw an error
+            return { type: type as WidgetTypeId } as WidgetConfig;
+    }
+}
+
 export function DashboardGrid({ initialWidgets, dashboardId }: DashboardGridProps) {
   const [widgets, setWidgets] = useState<AppWidget[]>(initialWidgets);
   const widgetIds = useMemo(() => widgets.map((widget) => widget.id), [widgets]);
 
+    const [isPaletteOpen, setIsPaletteOpen] = useState(false);
 
   useEffect(() => {
     setWidgets(initialWidgets);
@@ -65,7 +92,6 @@ export function DashboardGrid({ initialWidgets, dashboardId }: DashboardGridProp
       },
     }),
     useSensor(KeyboardSensor, {
-      // coordinateGetter: sortableKeyboardCoordinates,
     })
   );
   // --- End Sensor Configuration ---
@@ -75,13 +101,36 @@ export function DashboardGrid({ initialWidgets, dashboardId }: DashboardGridProp
     // --- This console log is key for verification ---
     console.log('✅ Drag ended:', `Active ID: ${active.id}`, `Over ID: ${over?.id}`);
     // ---
-        if (active.id !== over?.id && over) {
-             console.log(`TODO: Reorder widget ${active.id} to be near ${over.id}`);
-              // setWidgets((currentWidgets) => {
-      //   const oldIndex = currentWidgets.findIndex((w) => w.id === active.id);
-      //   const newIndex = currentWidgets.findIndex((w) => w.id === over.id);
-      //   return arrayMove(currentWidgets, oldIndex, newIndex);
-      // });
+        if (over && active.id !== over.id) {
+      console.log(`Attempting to reorder: Move ${active.id} over ${over.id}`);
+              setWidgets((currentWidgets) => {
+         const oldIndex = currentWidgets.findIndex((w) => w.id === active.id);
+        const newIndex = currentWidgets.findIndex((w) => w.id === over.id);
+
+         if (oldIndex === -1 || newIndex === -1) {
+          console.error(`Could not find indices for active (${active.id}) or over (${over.id}). Aborting reorder.`);
+          return currentWidgets; // Return current state if indices are invalid
+        }
+        console.log(`Found indices: oldIndex=${oldIndex}, newIndex=${newIndex}`);
+
+
+        const reorderedWidgets = arrayMove(currentWidgets, oldIndex, newIndex);
+        console.log('New widget order:', reorderedWidgets.map(w => ({ id: w.id, title: w.configuration?.title || w.type })));
+         return reorderedWidgets;
+      });
+      console.log("Local state updated. Persistence to DB needed later.");
+
+
+    } else {
+      if (!over) {
+        console.log(`Drag ended outside a valid drop target. No reorder.`);
+      } else if (active.id === over.id) {
+        console.log(`Item ${active.id} dropped back onto itself. No reorder needed.`);
+      } else {
+          console.log(`Drag ended without meeting reorder conditions. Active: ${active.id}, Over: ${over?.id}`);
+      }
+
+      
         }
   };
 
@@ -94,12 +143,66 @@ export function DashboardGrid({ initialWidgets, dashboardId }: DashboardGridProp
 
   const handleDragOver = (event: any) => {
   }
+
+   const handleSelectWidgetType = (widgetTypeId: WidgetTypeId) => {
+        console.log(`Adding widget of type: ${widgetTypeId}`);
+
+        // 1. Generate a unique temporary ID
+        const newWidgetId = `temp-${uuidv4()}`; 
+                console.log(`Generated temporary widget ID: ${newWidgetId}`);
+// Prefix to indicate it's temporary
+
+        // 2. Define default grid properties
+        const defaultGridWidth = 4; // Example: 4 columns wide
+        const defaultGridHeight = 2; // Example: 2 rows high (adjust based on your auto-rows value)
+
+        // 3. Create the new widget object
+        const newWidget: AppWidget = {
+            id: newWidgetId,
+            type: widgetTypeId,
+            // Add default grid position and size
+            // These might not be immediately used for rendering placement if just appending,
+            // but are needed for the data structure and persistence later.
+            // Placing at (0, very large Y) can encourage user to move it.
+            gridX: 0,
+            gridY: 999, // Assign a high Y value to visually place at the bottom initially
+            gridWidth: defaultGridWidth,
+            gridHeight: defaultGridHeight,
+            // 4. Get the default configuration for this widget type
+            configuration: getDefaultWidgetConfig(widgetTypeId),
+            dashboardId: dashboardId, // Assuming you have access to the current dashboardId
+  createdAt: new Date(), // Or some other sensible default
+  updatedAt: new Date(),
+        };
+
+        console.log("Creating new widget object:", newWidget);
+
+        // 5. Update the state: Add the new widget to the end of the array
+        setWidgets((prevWidgets) => {
+            // Append the new widget to the existing array
+            const updatedWidgets = [...prevWidgets, newWidget];
+            console.log("Updated widgets state:", updatedWidgets);
+            return updatedWidgets;
+        });
+
+        // Palette closes itself automatically via its internal handler calling onOpenChange(false)
+    };
   // --- End DndContext Event Handlers ---
 
   return (
     // --- DndContext Setup ---
-    
-    // This provider wraps the entire draggable area.
+    <>
+            {/* --- Add Widget Button --- */}
+            <div className="flex justify-end mb-4">
+                <Button
+                    onClick={() => setIsPaletteOpen(true)} // Set state to true on click
+                    variant="default" // Or choose another variant
+                >
+                    <PlusCircle className="mr-2 h-4 w-4" /> {/* Optional icon */}
+                    Add Widget
+                </Button>
+            </div>
+
     <DndContext
     sensors = {sensors}
     collisionDetection={closestCenter}
@@ -135,9 +238,7 @@ export function DashboardGrid({ initialWidgets, dashboardId }: DashboardGridProp
         {widgets.length > 0 ? (
            widgets.map((widget) => {
              const SpecificWidgetComponent = getWidgetComponent(widget.type);
-             // TODO: Refine grid class logic based on actual grid properties (x, y, w, h)
-             const gridClassName =  `col-span-${widget.gridWidth} row-span-${widget.gridHeight}`;
- // Example
+                                const gridClassName = `col-span-${widget.gridWidth} row-span-${widget.gridHeight}`;
 
              return (
                 // WidgetWrapper now rendered here inside DndContext
@@ -170,6 +271,14 @@ export function DashboardGrid({ initialWidgets, dashboardId }: DashboardGridProp
 
       {/* TODO: Add DragOverlay later for smoother visual dragging */}
  </SortableContext>
-    </DndContext> // --- End DndContext ---
+    </DndContext>
+
+    <WidgetPalette
+                open={isPaletteOpen}
+                onOpenChange={setIsPaletteOpen} // Pass the state setter directly
+                onSelectWidget={handleSelectWidgetType} // Pass the handler function
+            />
+            </>
+ // --- End DndContext ---
   );
 }
