@@ -1,7 +1,7 @@
 // components/dashboard/DashboardGrid.tsx
 'use client'; // Mark this as a Client Component
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -11,6 +11,12 @@ import {
   KeyboardSensor,
   closestCenter,
 } from '@dnd-kit/core';
+
+import {
+  SortableContext,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable';
+import {arrayMove} from '@dnd-kit/sortable';
 // Import types (assuming you have centralized types)
 import type { AppWidget, WidgetConfig } from '@/lib/types/widget';
 
@@ -43,6 +49,9 @@ const handleNotesConfigChange = (widgetId: string, newConfig: any) => { // Use s
 };
 export function DashboardGrid({ initialWidgets, dashboardId }: DashboardGridProps) {
   const [widgets, setWidgets] = useState<AppWidget[]>(initialWidgets);
+  const widgetIds = useMemo(() => widgets.map((widget) => widget.id), [widgets]);
+
+
   useEffect(() => {
     setWidgets(initialWidgets);
   }, [initialWidgets]);
@@ -56,6 +65,7 @@ export function DashboardGrid({ initialWidgets, dashboardId }: DashboardGridProp
       },
     }),
     useSensor(KeyboardSensor, {
+      // coordinateGetter: sortableKeyboardCoordinates,
     })
   );
   // --- End Sensor Configuration ---
@@ -65,6 +75,14 @@ export function DashboardGrid({ initialWidgets, dashboardId }: DashboardGridProp
     // --- This console log is key for verification ---
     console.log('✅ Drag ended:', `Active ID: ${active.id}`, `Over ID: ${over?.id}`);
     // ---
+        if (active.id !== over?.id && over) {
+             console.log(`TODO: Reorder widget ${active.id} to be near ${over.id}`);
+              // setWidgets((currentWidgets) => {
+      //   const oldIndex = currentWidgets.findIndex((w) => w.id === active.id);
+      //   const newIndex = currentWidgets.findIndex((w) => w.id === over.id);
+      //   return arrayMove(currentWidgets, oldIndex, newIndex);
+      // });
+        }
   };
 
   const handleDragStart = (event: any) => {
@@ -89,6 +107,10 @@ export function DashboardGrid({ initialWidgets, dashboardId }: DashboardGridProp
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd} // Function called when a drag operation ends
     >
+         <SortableContext
+        items={widgetIds} // Pass the array of widget IDs
+        strategy={rectSortingStrategy} // Use the grid sorting strategy
+      >
       {/* The actual CSS Grid container (same as defined in the page previously) */}
       <div
         className="
@@ -114,7 +136,8 @@ export function DashboardGrid({ initialWidgets, dashboardId }: DashboardGridProp
            widgets.map((widget) => {
              const SpecificWidgetComponent = getWidgetComponent(widget.type);
              // TODO: Refine grid class logic based on actual grid properties (x, y, w, h)
-             const gridClassName = `col-start-${widget.gridX + 1} col-span-${widget.gridWidth} row-start-${widget.gridY + 1} row-span-${widget.gridHeight}`; // Example
+             const gridClassName =  `col-span-${widget.gridWidth} row-span-${widget.gridHeight}`;
+ // Example
 
              return (
                 // WidgetWrapper now rendered here inside DndContext
@@ -146,7 +169,7 @@ export function DashboardGrid({ initialWidgets, dashboardId }: DashboardGridProp
       </div> {/* End of CSS Grid container */}
 
       {/* TODO: Add DragOverlay later for smoother visual dragging */}
-
+ </SortableContext>
     </DndContext> // --- End DndContext ---
   );
 }

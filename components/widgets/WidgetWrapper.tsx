@@ -5,6 +5,8 @@ import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Settings, GripVertical } from 'lucide-react'; // Icons for settings and drag handle
+import {useSortable} from '@dnd-kit/sortable';
+import {CSS} from '@dnd-kit/utilities';
 
 // Define the props the WidgetWrapper will accept
 interface WidgetWrapperProps {
@@ -41,6 +43,25 @@ export function WidgetWrapper({
   onConfigure
 }: WidgetWrapperProps) {
 
+    const {
+    attributes: sortableAtrributes,     
+    listeners: sortableListeners,      
+    setNodeRef,     
+    transform,     
+    transition,     
+    isDragging,     
+  } = useSortable({
+    id: widgetId
+  });
+
+  const dndstyle: React.CSSProperties={
+ transform: CSS.Transform.toString(transform),
+    transition: transition || undefined,
+    opacity: isDragging ? 0.8 : 1,
+    zIndex: isDragging ? 100 : 'auto',
+    cursor: isDragging ? 'grabbing' : 'grab',
+  };
+
   // Handler for the settings button click (to be implemented later)
   const handleSettingsClick = () => {
     console.log(`Configure widget: ${widgetId}`);
@@ -57,9 +78,10 @@ export function WidgetWrapper({
     // Apply passed-in className for grid positioning (col-span/row-span)
     // Apply dnd-kit style prop later for drag transformations
     <Card
-      className={`flex flex-col h-full ${className}`} // Ensure card takes full height of grid cell, apply layout classes
-      style={style} // Apply dnd-kit styles here later
-       {...attributes} // Spread dnd-kit attributes here later (for accessibility etc.)
+    ref= {setNodeRef}
+    style= {{...dndstyle, ...style}}
+      className={`flex flex-col h-full ${className}`} 
+       {...sortableAtrributes} // Spread dnd-kit attributes here later (for accessibility etc.)
     >
       {/* Card Header: Contains title, drag handle, and settings button */}
       <CardHeader className="flex flex-row items-center justify-between space-y-0 py-3 px-4 border-b">
@@ -68,7 +90,7 @@ export function WidgetWrapper({
           {/* Drag Handle Placeholder (integrates with dnd-kit listeners later) */}
           <div
             className="cursor-grab text-muted-foreground hover:text-foreground flex-shrink-0"
-             {...listeners} // Spread dnd-kit listeners here later
+             {...sortableListeners} // Spread dnd-kit listeners here later
             aria-label="Drag widget handle"
           >
             <GripVertical className="h-5 w-5" />
@@ -86,6 +108,8 @@ export function WidgetWrapper({
             size="sm"
             onClick={handleSettingsClick}
             aria-label={`Settings for ${title} widget`}
+             onPointerDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
           >
             <Settings className="h-4 w-4" />
           </Button>
